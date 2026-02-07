@@ -140,8 +140,10 @@
             }
 
             // Store notes globally for Phaser
-            window.gameNotes = finalNotes.split('\n').map(line => line.trim()).filter(l => l.length > 0);
-            window.gameNotes = notes;
+            window.gameNotes = finalNotes
+            .split('\n')
+            .map(line => line.trim())
+            .filter(l => l.length > 0);
             startPhaserGame();
 
         } catch (error) {
