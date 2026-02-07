@@ -1,69 +1,94 @@
 class Play extends Phaser.Scene {
     constructor() {
-      super('playScene');
+        super('playScene');
     }
-    
+
     init(data) {
-      this.questionData = data.questionData;
+        this.notes = data.notes;
     }
-    
+
     create() {
-      // --- Background ---
-      this.background = this.add.sprite(
-        window.innerWidth / 2,
-        window.innerHeight / 2,
-        'background'
-      ).setDisplaySize(window.innerWidth, window.innerHeight);
-  
-      // --- Doors ---
-      this.doors = [];
-      this.doors.push(this.add.sprite(window.innerWidth / 6, (window.innerHeight / 4) * 2, 'wrongDoor'));
-      this.doors.push(this.add.sprite(window.innerWidth / 2, (window.innerHeight / 4) * 2, 'correctDoor'));
-      this.doors.push(this.add.sprite((window.innerWidth / 6) * 5, (window.innerHeight / 4) * 2, 'wrongDoor'));
-  
-      // --- Question Text ---
-      this.questionText = this.add.text(
-        window.innerWidth / 2,
-        window.innerHeight / 6,
-        this.questionData.question,
-        { fontSize: '24px', color: '#ffffff', wordWrap: { width: 600 } }
-      ).setOrigin(0.5);
-  
-      this.answers = this.questionData.answers;
-      this.correctIndex = this.questionData.correctIndex;
-      this.hint = this.questionData.hint;
-  
-      this.assignDoorAnswers();
+        if (!this.notes || this.notes.length === 0) {
+            console.error('No notes provided');
+            return;
+        }
+
+        // Fetch question from backend
+        fetch('http://localhost:3000/api/generate-question', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ notes: this.notes })
+        })
+        .then(res => res.json())
+        .then(data => {
+            console.log('Question received from backend:', data);
+            this.questionData = data;
+            this.setupRoom();
+        })
+        .catch(err => console.error('Failed to generate question:', err));
     }
-  
+
+    setupRoom() {
+        // Background
+        this.add.sprite(this.cameras.main.width / 2, this.cameras.main.height / 2, 'background')
+            .setDisplaySize(this.cameras.main.width, this.cameras.main.height);
+
+        // Doors
+        this.doors = [];
+        const positions = [
+            this.cameras.main.width / 6,
+            this.cameras.main.width / 2,
+            (this.cameras.main.width / 6) * 5
+        ];
+
+        for (let i = 0; i < 3; i++) {
+            const doorKey = i === this.questionData.correctIndex ? 'correctDoor' : 'wrongDoor';
+            const door = this.add.sprite(positions[i], (this.cameras.main.height / 4) * 2, doorKey)
+                .setInteractive();
+            this.doors.push(door);
+        }
+
+        // Question Text
+        this.questionText = this.add.text(
+            this.cameras.main.width / 2,
+            this.cameras.main.height / 6,
+            this.questionData.question,
+            { fontSize: '24px', color: '#ffffff', wordWrap: { width: 600 }, align: 'center' }
+        ).setOrigin(0.5);
+
+        // Display Answers as text above doors
+        this.answerTexts = [];
+        for (let i = 0; i < this.questionData.answers.length; i++) {
+            const text = this.add.text(
+                positions[i],
+                (this.cameras.main.height / 4) * 2 - 80,
+                this.questionData.answers[i],
+                { fontSize: '18px', color: '#fffb', wordWrap: { width: 150 }, align: 'center' }
+            ).setOrigin(0.5);
+            this.answerTexts.push(text);
+        }
+
+        this.hintText = this.add.text(
+            this.cameras.main.width / 2,
+            this.cameras.main.height - 50,
+            "",
+            { fontSize: '20px', color: '#ffeb3b', wordWrap: { width: 600 }, align: 'center' }
+        ).setOrigin(0.5);
+
+        this.assignDoorAnswers();
+    }
+
     assignDoorAnswers() {
-      const shuffled = Phaser.Utils.Array.Shuffle(
-        this.answers.map((text, index) => ({ text, index }))
-      );
-  
-      shuffled.forEach((answer, i) => {
-        this.doors[i].answerIndex = answer.index;
-        this.doors[i].setInteractive();
-        this.doors[i].on('pointerdown', () => this.handleDoorChoice(answer.index));
-      });
+        this.doors.forEach((door, i) => {
+            door.on('pointerdown', () => this.handleDoorChoice(i));
+        });
     }
-  
+
     handleDoorChoice(choiceIndex) {
-      if (choiceIndex === this.correctIndex) {
-        this.openDoor();
-      } else {
-        this.showHint(this.hint);
-      }
+        if (choiceIndex === this.questionData.correctIndex) {
+            this.hintText.setText("✅ Correct!");
+        } else {
+            this.hintText.setText("💡 Hint: " + this.questionData.hint);
+        }
     }
-  
-    openDoor() {
-      console.log('Correct!');
-      // Add animation, next question, or next room logic here
-    }
-  
-    showHint(hint) {
-      console.log('Hint:', hint);
-      // You can also show hint text in the scene
-    }
-  }
-  
+}
