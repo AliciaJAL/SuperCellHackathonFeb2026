@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Edu Escape Room</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Segoe+UI:wght@400;600&display=swap"
+    rel="stylesheet">
+  <link rel="icon" type="image/png" href="./assets/1.png">
+
+  <script src="./lib/phaser.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+  <script src="./src/scenes/Load.js"></script>
+  <script src="./src/scenes/Menu.js"></script>
+  <script src="./src/scenes/Play.js"></script>
+  <script src="./src/main.js"></script>
+
+  <style>
+    :root {
+      --bg-overlay: rgba(20, 20, 30, 0.95);
+      --accent: #8b5cf6;
+      /* Violet */
+      --accent-hover: #7c3aed;
+      --text: #ffffff;
+      --input-bg: #2d2d3a;
+    }
+
+    body {
+      margin: 0;
+      background-color: #000;
+      /* Fallback for canvas */
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      overflow: hidden;
+      /* Prevent scrolling during game */
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100vh;
+    }
+
+    /* The Menu UI Overlay */
+    #menu-ui {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 90%;
+      max-width: 450px;
+      background: var(--bg-overlay);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+      padding: 2rem;
+      border-radius: 16px;
+      color: var(--text);
+      text-align: center;
+      z-index: 100;
+      transition: opacity 0.5s ease;
+    }
+
+    h2 {
+      margin-top: 0;
+      font-family: 'Press Start 2P', cursive;
+      font-size: 1.2rem;
+      color: var(--accent);
+      margin-bottom: 1.5rem;
+      line-height: 1.5;
+    }
+
+    textarea {
+      width: 100%;
+      height: 120px;
+      background: var(--input-bg);
+      border: 2px solid transparent;
+      border-radius: 8px;
+      padding: 1rem;
+      color: white;
+      font-family: inherit;
+      resize: none;
+      box-sizing: border-box;
+      transition: border-color 0.3s;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .file-upload-container {
+      margin: 1.5rem 0;
+      position: relative;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    .custom-file-upload {
+      display: inline-block;
+      padding: 10px 20px;
+      cursor: pointer;
+      background: #3f3f50;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      transition: background 0.3s;
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px dashed #666;
+    }
+
+    .custom-file-upload:hover {
+      background: #4f4f65;
+      border-color: var(--accent);
+    }
+
+    #start-game {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      font-size: 1rem;
+      font-weight: bold;
+      border-radius: 8px;
+      cursor: pointer;
+      width: 100%;
+      transition: transform 0.1s, background 0.3s;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    #start-game:hover {
+      background: var(--accent-hover);
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(139, 92, 246, 0.4);
+    }
+
+    #start-game:disabled {
+      background: #555;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    #loading-msg {
+      display: none;
+      margin-top: 15px;
+      font-size: 0.85rem;
+      color: #ccc;
+      font-style: italic;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="menu-ui">
+    <h2>MISSION BRIEFING</h2>
+
+    <textarea id="notes-input" placeholder="Paste your study notes here directly..."></textarea>
+
+    <div class="file-upload-container">
+      <label for="file-input" class="custom-file-upload">
+        <span id="file-label">📂 Click to Upload PDF or Text</span>
+      </label>
+      <input type="file" id="file-input" accept=".txt,.pdf" />
+    </div>
+
+    <button id="start-game">Enter Dungeon</button>
+    <div id="loading-msg">Decrypting notes...</div>
+  </div>
+
+  <script>
+    // 1. Setup PDF.js Worker (Required for reading PDFs)
+    if (window.pdfjsLib) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+
+    // Get DOM Elements
+    const fileInput = document.getElementById('file-input');
+    const fileLabel = document.getElementById('file-label');
+    const notesInput = document.getElementById('notes-input');
+    const startBtn = document.getElementById('start-game');
+    const menuUi = document.getElementById('menu-ui');
+    const loadingMsg = document.getElementById('loading-msg');
+
+    // Visual feedback when file is selected
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        fileLabel.innerText = "✅ " + e.target.files[0].name;
+      }
+    });
+
+    // START BUTTON Logic
+    startBtn.addEventListener('click', async () => {
+        let finalNotes = "";
+
+        startBtn.disabled = true;
+        loadingMsg.style.display = "block";
+
+        try {
+            if (notesInput.value.trim().length > 0) {
+                finalNotes = notesInput.value;
+            } else if (fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                if (file.type === "application/pdf") {
+                    finalNotes = await extractTextFromPDF(file);
+                } else {
+                    finalNotes = await file.text();
+                }
+            } else {
+                alert("Please paste notes or upload a file to start.");
+                resetUI();
+                return;
+            }
+
+            if (!finalNotes.trim()) {
+                alert("Could not read text from that file.");
+                resetUI();
+                return;
+            }
+
+            // Store notes globally for Phaser
+            window.gameNotes = finalNotes
+            .split('\n')
+            .map(line => line.trim())
+            .filter(l => l.length > 0);
+            startPhaserGame();
+
+        } catch (error) {
+            console.error(error);
+            alert("Error reading file. Try a simpler text file.");
+            resetUI();
+        }
+
+        if (!finalNotes || finalNotes.trim() === "") {
+          throw new Error("File appears empty");
+        }
+
+        // Step B: Send to Backend (Ollama)
+        loadingMsg.innerText = "Analyzing notes with AI... (Takes ~5-10s)";
+        console.log("Sending notes to backend...");
+
+        const response = await fetch('http://localhost:3000/api/generate-question', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ notes: finalNotes })
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error("Server Error: " + errorText);
+        }
+
+        const questionData = await response.json();
+        console.log("🔥 AI Generated Question:", questionData);
+
+        // Step C: Start the Game
+        startGame(questionData);
+
+      } catch (error) {
+        console.error("Error:", error);
+        alert("Error: " + error.message);
+        resetUI();
+      }
+    });
+
+    function resetUI() {
+      startBtn.disabled = false;
+      loadingMsg.style.display = "none";
+      loadingMsg.innerText = "";
+    }
+
+    // --- Helper: Extract Text from PDF ---
+    async function extractTextFromPDF(file) {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+      let fullText = "";
+
+      // Loop through pages (limit to first 5 pages for speed if needed)
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map(item => item.str).join(" ");
+        fullText += pageText + "\n";
+      }
+      return fullText;
+    }
+
+    // --- Helper: Launch Game ---
+    function startGame(questionData) {
+      // 1. Hide the Menu
+      menuUi.style.opacity = '0';
+      setTimeout(() => {
+        menuUi.style.display = 'none';
+      }, 500);
+
+      // 2. Pass data to Phaser
+      // Store it globally so your Play.js scene can grab it
+      window.gameData = questionData;
+
+      // Also dispatch an event just in case the game is already listening
+      const event = new CustomEvent('game-start', { detail: questionData });
+      window.dispatchEvent(event);
+
+      console.log("🚀 Game Started! Correct Answer Index:", questionData.correctIndex);
+    }
+  </script>
+
+</body>
+
+</html>
