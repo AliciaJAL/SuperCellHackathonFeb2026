@@ -1,60 +1,284 @@
 <!DOCTYPE html>
-<div id="menu-ui" style="
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: rgba(0,0,0,0.8);
-  padding: 20px;
-  border-radius: 12px;
-  color: white;
-  width: 400px;
-  display: none;
-  z-index: 10;
-">
-  <h2>Upload Notes</h2>
-
-  <textarea id="notes-input"
-    placeholder="Paste your study notes here..."
-    style="width: 100%; height: 120px;"></textarea>
-
-  <br><br>
-
-  <input type="file" id="file-input" />
-
-  <br><br>
-
-  <button id="start-game">Start Escape Room</button>
-</div>
-
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title> Edu Escape Room </title>
+    <title>Edu Escape Room</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Segoe+UI:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="./assets/1.png">
+
     <script src="./lib/phaser.js"></script>
-	<script src="./src/scenes/Load.js"></script>
-	<script src="./src/scenes/Menu.js"></script>
-	<script src="./src/scenes/Play.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    
+    <script src="./src/scenes/Load.js"></script>
+    <script src="./src/scenes/Menu.js"></script>
+    <script src="./src/scenes/Play.js"></script>
     <script src="./src/main.js"></script>
-	<style>   
-	     
-	body {
-		margin: 0;
-	}
 
-	canvas {
-		margin: 0 !important;
-		width: 100%;
-		height: 100vh;
-		display: block;
-	}
-	</style>
+    <style>
+        :root {
+            --bg-overlay: rgba(20, 20, 30, 0.95);
+            --accent: #8b5cf6; /* Violet */
+            --accent-hover: #7c3aed;
+            --text: #ffffff;
+            --input-bg: #2d2d3a;
+        }
+
+        body {
+            margin: 0;
+            background-color: #000; /* Fallback for canvas */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden; /* Prevent scrolling during game */
+        }
+
+        /* Ensure Phaser canvas fits */
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100vh;
+        }
+
+        /* The Menu UI Overlay */
+        #menu-ui {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            max-width: 450px;
+            
+            /* Glassmorphism Effect */
+            background: var(--bg-overlay);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            
+            padding: 2rem;
+            border-radius: 16px;
+            color: var(--text);
+            text-align: center;
+            z-index: 100;
+            transition: opacity 0.5s ease;
+        }
+
+        h2 {
+            margin-top: 0;
+            font-family: 'Press Start 2P', cursive; /* Retro game font */
+            font-size: 1.2rem;
+            color: var(--accent);
+            margin-bottom: 1.5rem;
+            line-height: 1.5;
+        }
+
+        /* Text Area Styling */
+        textarea {
+            width: 100%;
+            height: 120px;
+            background: var(--input-bg);
+            border: 2px solid transparent;
+            border-radius: 8px;
+            padding: 1rem;
+            color: white;
+            font-family: inherit;
+            resize: none;
+            box-sizing: border-box; /* Fixes padding width issues */
+            transition: border-color 0.3s;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        /* File Input Styling */
+        .file-upload-container {
+            margin: 1.5rem 0;
+            position: relative;
+        }
+
+        input[type="file"] {
+            display: none; /* Hide default ugly input */
+        }
+
+        .custom-file-upload {
+            display: inline-block;
+            padding: 10px 20px;
+            cursor: pointer;
+            background: #3f3f50;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            transition: background 0.3s;
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px dashed #666;
+        }
+
+        .custom-file-upload:hover {
+            background: #4f4f65;
+            border-color: var(--accent);
+        }
+
+        /* Start Button Styling */
+        #start-game {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1rem;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            transition: transform 0.1s, background 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        #start-game:hover {
+            background: var(--accent-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(139, 92, 246, 0.4);
+        }
+
+        #start-game:active {
+            transform: translateY(0);
+        }
+
+        /* Loading Spinner (Hidden by default) */
+        #loading-msg {
+            display: none;
+            margin-top: 10px;
+            font-size: 0.8rem;
+            color: #ccc;
+        }
+    </style>
 </head>
-
-<link rel="icon" type="image/png" href="./assets/1.png">
-
 <body>
-	
+
+    <div id="menu-ui">
+        <h2>MISSION BRIEFING</h2>
+        
+        <textarea id="notes-input" placeholder="Paste your study notes here directly..."></textarea>
+
+        <div class="file-upload-container">
+            <label for="file-input" class="custom-file-upload">
+                <span id="file-label">📂 Click to Upload PDF or Text</span>
+            </label>
+            <input type="file" id="file-input" accept=".txt,.pdf" />
+        </div>
+
+        <button id="start-game">Enter Dungeon</button>
+        <div id="loading-msg">Decrypting notes...</div>
+    </div>
+
+    <script>
+        // 1. Setup PDF.js Worker (Required for reading PDFs)
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        const fileInput = document.getElementById('file-input');
+        const fileLabel = document.getElementById('file-label');
+        const notesInput = document.getElementById('notes-input');
+        const startBtn = document.getElementById('start-game');
+        const menuUi = document.getElementById('menu-ui');
+        const loadingMsg = document.getElementById('loading-msg');
+
+        // Update button text when file is selected
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                fileLabel.innerText = "✅ " + e.target.files[0].name;
+            }
+        });
+
+        startBtn.addEventListener('click', async () => {
+            let finalNotes = "";
+
+            // Disable button during processing
+            startBtn.disabled = true;
+            loadingMsg.style.display = "block";
+
+            try {
+                // Priority 1: Check if text was pasted manually
+                if (notesInput.value.trim().length > 0) {
+                    finalNotes = notesInput.value;
+                } 
+                // Priority 2: Check if a file was uploaded
+                else if (fileInput.files.length > 0) {
+                    const file = fileInput.files[0];
+                    
+                    if (file.type === "application/pdf") {
+                        finalNotes = await extractTextFromPDF(file);
+                    } else {
+                        // Assume plain text
+                        finalNotes = await file.text();
+                    }
+                } else {
+                    alert("Please paste notes or upload a file to start.");
+                    resetUI();
+                    return;
+                }
+
+                if (!finalNotes || finalNotes.trim() === "") {
+                    alert("Could not read text from that file.");
+                    resetUI();
+                    return;
+                }
+
+                // SUCCESS: Start the game
+                startGame(finalNotes);
+
+            } catch (error) {
+                console.error("Error reading file:", error);
+                alert("Error reading file. Please try a simpler text file.");
+                resetUI();
+            }
+        });
+
+        function resetUI() {
+            startBtn.disabled = false;
+            loadingMsg.style.display = "none";
+        }
+
+        // --- PDF Extraction Logic ---
+        async function extractTextFromPDF(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+            let fullText = "";
+
+            // Loop through every page
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                const pageText = textContent.items.map(item => item.str).join(" ");
+                fullText += pageText + "\n";
+            }
+            return fullText;
+        }
+
+        // --- Game Handoff ---
+        function startGame(notes) {
+            console.log("Notes loaded:", notes.substring(0, 50) + "...");
+            
+            // 1. Hide the Menu
+            menuUi.style.opacity = '0';
+            setTimeout(() => {
+                menuUi.style.display = 'none';
+            }, 500);
+
+            // 2. Pass data to Phaser
+            // Method A: Store in a global variable accessed by your Phaser Scene
+            window.gameData = {
+                notes: notes
+            };
+
+            // Method B: If your game is already running, emit an event
+            const event = new CustomEvent('game-start', { detail: { notes: notes } });
+            window.dispatchEvent(event);
+
+            // OPTIONAL: If using Phaser's Scene Manager directly to start:
+            // game.scene.start('Play', { notes: notes });
+        }
+    </script>
+
 </body>
 </html>
