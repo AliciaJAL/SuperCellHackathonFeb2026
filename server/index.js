@@ -1,11 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
-import OpenAI from 'openai';
-
-dotenv.config();
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+import { exec } from 'child_process';
 
 const app = express();
 app.use(cors());
@@ -14,8 +9,10 @@ app.use(express.json());
 app.post('/api/generate-question', async (req, res) => {
   const { notes } = req.body;
 
+  // Create the prompt for Ollama
   const prompt = `
-You are a helpful educational assistant. Generate a multiple-choice question from these notes:
+You are a helpful educational assistant.
+Generate a multiple-choice question from these notes:
 
 ${notes}
 
@@ -32,31 +29,30 @@ Respond ONLY in JSON format like this:
   "correctIndex": 0,
   "hint": "A helpful hint here"
 }
-  `;
+`;
 
   try {
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: prompt }],
+    // Call Ollama CLI
+    exec(`ollama generate llama3.2:3b "${prompt}"`, (error, stdout, stderr) => {
+      if (error) {
+        console.error(error);
+        return res.status(500).json({ error: 'LLM generation failed' });
+      }
+
+      // Parse the JSON from Ollama's output
+      let data;
+      try {
+        data = JSON.parse(stdout);
+      } catch (e) {
+        return res.status(500).json({ error: 'Failed to parse LLM output' });
+      }
+
+      res.json(data);
     });
-
-    const responseText = completion.choices[0].message.content;
-
-    // Parse JSON safely
-    let data;
-    try {
-      data = JSON.parse(responseText);
-    } catch (e) {
-      return res.status(500).json({ error: 'Failed to parse LLM output' });
-    }
-
-    res.json(data);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to generate question' });
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
-app.listen(3000, () => {
-  console.log('Backend running on http://localhost:3000');
-});
+app.listen(3000, () => console.log('Server running on http://localhost:3000'));
