@@ -10,3 +10,4 @@ const game = new Phaser.Game(config);
   
 // STOP auto start
 game.scene.stop('playScene');
+
