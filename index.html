@@ -197,28 +197,44 @@
 
     // START BUTTON Logic
     startBtn.addEventListener('click', async () => {
-      let finalNotes = "";
+        let finalNotes = "";
 
-      // Disable button during processing
-      startBtn.disabled = true;
-      loadingMsg.style.display = "block";
-      loadingMsg.innerText = "Reading file...";
+        startBtn.disabled = true;
+        loadingMsg.style.display = "block";
 
-      try {
-        // Step A: Get the text (from Text Box OR File)
-        if (notesInput.value.trim().length > 0) {
-          finalNotes = notesInput.value;
-        } else if (fileInput.files.length > 0) {
-          const file = fileInput.files[0];
-          if (file.type === "application/pdf") {
-            finalNotes = await extractTextFromPDF(file);
-          } else {
-            finalNotes = await file.text();
-          }
-        } else {
-          alert("Please paste notes or upload a file to start.");
-          resetUI();
-          return;
+        try {
+            if (notesInput.value.trim().length > 0) {
+                finalNotes = notesInput.value;
+            } else if (fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                if (file.type === "application/pdf") {
+                    finalNotes = await extractTextFromPDF(file);
+                } else {
+                    finalNotes = await file.text();
+                }
+            } else {
+                alert("Please paste notes or upload a file to start.");
+                resetUI();
+                return;
+            }
+
+            if (!finalNotes.trim()) {
+                alert("Could not read text from that file.");
+                resetUI();
+                return;
+            }
+
+            // Store notes globally for Phaser
+            window.gameNotes = finalNotes
+            .split('\n')
+            .map(line => line.trim())
+            .filter(l => l.length > 0);
+            startPhaserGame();
+
+        } catch (error) {
+            console.error(error);
+            alert("Error reading file. Try a simpler text file.");
+            resetUI();
         }
 
         if (!finalNotes || finalNotes.trim() === "") {
