@@ -1,21 +1,58 @@
 class Menu extends Phaser.Scene {
     constructor() {
-        super('menuScene');
+      super('menuScene');
     }
-
-
+  
     create() {
-		this.background = this.add.sprite(0, 0, "background").setOrigin(0.5, 0.5)
-
-		this.background.setDisplaySize(window.innerWidth, window.innerHeight)
-		this.background.setPosition(window.innerWidth / 2, window.innerHeight / 2)
-
-        this.startKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE)
+      // Show the HTML menu
+      document.getElementById('menu-ui').style.display = 'block';
+  
+      const startBtn = document.getElementById('start-game');
+      startBtn.onclick = () => this.startGame();
     }
-
-    update() {
-        if (Phaser.Input.Keyboard.JustDown(this.startKey)) {      
-          this.scene.start('playScene')    
-        }
+  
+    startGame() {
+      const textArea = document.getElementById('notes-input');
+      const fileInput = document.getElementById('file-input');
+  
+      // Priority: pasted text > file
+      if (textArea.value.trim()) {
+        this.sendNotes(textArea.value);
+      } else if (fileInput.files.length > 0) {
+        this.readFile(fileInput.files[0]);
+      } else {
+        alert('Please paste text or upload a file.');
+      }
     }
-}
+  
+    readFile(file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        this.sendNotes(reader.result);
+      };
+      reader.readAsText(file);
+    }
+  
+    sendNotes(notes) {
+      fetch('http://localhost:3000/api/generate-question', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes })
+      })
+        .then(res => res.json())
+        .then(data => {
+          // Hide menu UI
+          document.getElementById('menu-ui').style.display = 'none';
+  
+          // Pass data to next scene
+          this.scene.start('playScene', {
+            questionData: data
+          });
+        })
+        .catch(err => {
+          console.error(err);
+          alert('Failed to generate question.');
+        });
+    }
+  }
+  
