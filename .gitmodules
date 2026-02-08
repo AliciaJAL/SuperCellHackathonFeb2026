@@ -1,0 +1,3 @@
+[submodule "stable-diffusion-webuild"]
+	path = stable-diffusion-webuild
+	url = https://github.com/AliciaJAL/stable-diffusion-webui.git
