@@ -42,7 +42,7 @@
         #menu-ui {
             position: absolute;
             top: 50%;
-            left: 50%;
+            left: 75%;
             transform: translate(-50%, -50%);
             width: 90%;
             max-width: 450px;
@@ -136,6 +136,68 @@
             font-size: 0.8rem;
             color: #ccc;
         }
+
+        #settings-ui {
+          position: absolute;
+          top: 50%; right: 135%;
+          transform: translateY(-50%);
+          width: 90%; max-width: 350px;
+          background: var(--bg-overlay);
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(255,255,255,0.1);
+          box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+          padding: 2rem;
+          border-radius: 16px;
+          color: var(--text);
+          z-index: 100;
+          transition: opacity 0.5s ease;
+        }
+
+      .settings-group {
+          margin-bottom: 1.5rem;
+          text-align: left;
+      }
+
+      .settings-group label {
+          display: block;
+          font-size: 0.85rem;
+          font-weight: 600;
+          color: var(--accent);
+          margin-bottom: 0.5rem;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+      }
+
+      .settings-group input[type="number"],
+      .settings-group input[type="text"] {
+          width: 100%;
+          background: var(--input-bg);
+          border: 2px solid transparent;
+          border-radius: 8px;
+          padding: 0.75rem;
+          color: white;
+          font-family: inherit;
+          font-size: 0.95rem;
+          box-sizing: border-box;
+          transition: border-color 0.3s;
+      }
+
+      .settings-group input[type="number"]:focus,
+      .settings-group input[type="text"]:focus {
+          outline: none;
+          border-color: var(--accent);
+      }
+
+      .settings-group input[type="text"]::placeholder {
+          color: #888;
+          font-size: 0.85rem;
+      }
+
+      #settings-ui h2 {
+          text-align: center;
+          font-size: 1rem;
+          margin-bottom: 1.5rem;
+      }
     </style>
 </head>
 
@@ -151,6 +213,33 @@
                 <span id="file-label">📂 Click to Upload PDF or Text</span>
             </label>
             <input type="file" id="file-input" accept=".txt,.pdf" />
+        </div>
+
+        <div id="settings-ui">
+            <h2>GAME SETTINGS</h2>
+    
+            <div class="settings-group">
+                <label for="num-questions">Number of Questions</label>
+                <input type="number" id="num-questions" min="1" max="20" value="5">
+            </div>
+        
+            <div class="settings-group">
+                <label for="tone-input">Tone</label>
+                <input type="text" id="tone-input" placeholder="e.g. educational, casual, challenging">
+                </select>
+            </div>
+
+            <div class="settings-group">
+                <label for="theme-input">Theme</label>
+                <input type="text" id="theme-input" placeholder="e.g. dungeon, space station, library">
+                </select>
+            </div>
+
+            <div class="settings-group">
+                <label for="artstyle-input">Art Style</label>
+                <input type="text" id="artstyle-input" placeholder="e.g. pixel art, cartoon, minimal">
+                </select>
+            </div>
         </div>
 
         <button id="start-game">Enter Dungeon</button>
@@ -206,6 +295,16 @@
                     .split('\n')
                     .map(line => line.trim())
                     .filter(l => l.length > 0);
+                  
+                //Store game settings
+                window.gameSettings = {
+                    numQuestions: parseInt(document.getElementById('num-questions').value),
+                    tone: document.getElementById('tone-select').value,
+                    theme: document.getElementById('theme-select').value,
+                    artStyle: document.getElementById('artstyle-select').value
+                };
+
+                console.log('Game Settings:', window.gameSettings);
                 startPhaserGame();
 
             } catch (error) {
@@ -233,9 +332,13 @@
         }
 
         function startPhaserGame() {
-            // Hide menu
+            // Hide both menus
             menuUi.style.opacity = '0';
-            setTimeout(() => { menuUi.style.display = 'none'; }, 500);
+            document.getElementById('settings-ui').style.opacity = '0';
+            setTimeout(() => { 
+                menuUi.style.display = 'none';
+                document.getElementById('settings-ui').style.display = 'none';
+            }, 500);
 
             // Start Phaser game
             const config = {
