@@ -4,11 +4,10 @@ class Play extends Phaser.Scene {
         this.nextQuestionData = null; // Stores the invisible next question
         this.isFetching = false;      // Prevents double-fetching
         this.waitingForNext = false;  // Tracks if user is waiting on the AI
-        this.currentQuestionNumber = 0; //Track number of questions
     }
 
     preload() {
-        // Load your bubbly X image (save as 'assets/exit.png')
+        // Load your bubbly X image
         this.load.image('exit_button', 'assets/exit_button.png');
     }
 
@@ -53,53 +52,53 @@ class Play extends Phaser.Scene {
         // 5. Fetch the FIRST question immediately
         this.fetchQuestion(true); 
 
-        const exitButton = this.add.image(25, 10, 'exit_button')  // Adjust x/y and scale to fit your layout
+        // 6. Exit Button Setup
+        const exitButton = this.add.image(25, 10, 'exit_button')
             .setOrigin(0, 0)
             .setDepth(1000)          // always on top
             .setInteractive({ useHandCursor: true })
-            .setScale(0.1);          // Adjust scale for desired size (e.g., ~40-50px)
+            .setScale(0.1);          // Adjust scale for desired size
 
         // Hover effect
-        exitButton.on('pointerover', () => {
-            exitButton.setStyle({ backgroundColor: '#aa0000' });
-        });
-
-        exitButton.on('pointerout', () => {
-            exitButton.setStyle({ backgroundColor: '#000000' });
-        });
+        exitButton.on('pointerover', () => exitButton.setTint(0xff0000)); // Red tint is better than setStyle for images
+        exitButton.on('pointerout', () => exitButton.clearTint());
 
         // Click → return to Menu
         exitButton.on('pointerdown', () => {
-            // Stop Phaser
+            // Stop Phaser Game
             this.game.destroy(true);
 
-            // Restore HTML menu
+            // Restore HTML Menu
             const menuUi = document.getElementById('menu-ui');
-            const settingsUi = document.getElementById('settings-ui');
             const startBtn = document.getElementById('start-game');
             const loadingMsg = document.getElementById('loading-msg');
             const fileInput = document.getElementById('file-input');
             const fileLabel = document.getElementById('file-label');
             const notesInput = document.getElementById('notes-input');
+            const settingsUi = document.getElementById('settings-ui'); // Might be null
+
             // Reset UI state
-            startBtn.disabled = false;
-            loadingMsg.style.display = 'none';
-            loadingMsg.innerText = '';
-                    fileInput.value = '';
-            fileLabel.innerText = '📂 Upload PDF or Text File';
+            if (startBtn) startBtn.disabled = false;
+            if (loadingMsg) {
+                loadingMsg.style.display = 'none';
+                loadingMsg.innerText = '';
+            }
+            if (fileInput) fileInput.value = '';
+            if (fileLabel) fileLabel.innerText = '📂 Upload PDF or Text File';
+            if (notesInput) {
+                notesInput.value = '';
+                notesInput.placeholder = 'Paste your study notes here directly...';
+            }
 
-            notesInput.value = '';
-            notesInput.placeholder = 'Paste your study notes here directly...';
-
-            // Show menu
-            menuUi.style.display = 'block';
-            settingsUi.style.display = 'block';
-
-            // Force reflow for fade-in
-            requestAnimationFrame(() => {
-                menuUi.style.opacity = '1';
-                settingsUi.style.opacity = '1';
-            });
+            // Show menu with fade-in
+            if (menuUi) {
+                menuUi.style.display = 'block';
+                requestAnimationFrame(() => menuUi.style.opacity = '1');
+            }
+            if (settingsUi) {
+                settingsUi.style.display = 'block';
+                requestAnimationFrame(() => settingsUi.style.opacity = '1');
+            }
         });
     }
 
@@ -132,8 +131,7 @@ class Play extends Phaser.Scene {
                 this.nextQuestionData = data;
                 console.log("Next question secured in memory.");
 
-                // If the user was already waiting at the "Door Unlocking..." screen,
-                // let them in immediately.
+                // If user is waiting, transition immediately
                 if (this.waitingForNext) {
                     this.transitionToNextLevel();
                 }
@@ -145,7 +143,6 @@ class Play extends Phaser.Scene {
             if (isInitialLoad) {
                 this.handleError("Server connection failed.");
             } else {
-                // If background fetch fails, we just try again when the user finishes the level
                 console.warn("Background fetch failed. Will retry later.");
             }
         });
@@ -159,30 +156,9 @@ class Play extends Phaser.Scene {
     }
 
     setupRoom(data) {
-        // Increment question counter
-        this.currentQuestionNumber++;
-    
-        // Check if we've reached the limit
-        const maxQuestions = window.gameSettings?.numQuestions || 5;
-        if (this.currentQuestionNumber > maxQuestions) {
-            // Game complete - show simple message
-            this.roomContainer.removeAll(true);
-            const { width, height } = this.scale;
-            this.add.text(width/2, height/2, 
-                `Quest Complete!\n\nYou answered ${this.currentQuestionNumber - 1} questions!`, 
-                { 
-                    fontSize: '32px', 
-                    color: '#4ade80', 
-                    align: 'center',
-                    fontFamily: '"Segoe UI", sans-serif'
-                }
-            ).setOrigin(0.5);
-            return;
-        }
-    
         // Clear previous room content
-        this.roomContainer.removeAll(true); // 'true' destroys children
-        this.waitingForNext = false; // Reset waiting flag
+        this.roomContainer.removeAll(true);
+        this.waitingForNext = false;
 
         const { width, height } = this.scale;
 
@@ -195,22 +171,22 @@ class Play extends Phaser.Scene {
         }).setOrigin(0.5).setDepth(1);
         this.roomContainer.add(qText);
 
-        // --- HINT SYSTEM ---
-        this.hintText = this.add.text(width / 2, height - 475, `HINT: ${data.hint}`, {
+        // --- HINT TEXT (Bottom) ---
+        this.hintText = this.add.text(width / 2, height - 100, `HINT: ${data.hint}`, {
             fontSize: '22px', color: '#ffd700', backgroundColor: '#222222',
             padding: { x: 20, y: 10 }, fontStyle: 'bold', align: 'center',
             wordWrap: { width: width - 200 }
         }).setOrigin(0.5).setAlpha(0).setDepth(100);
         this.roomContainer.add(this.hintText);
 
-        // --- WRONG ANSWER SYSTEM ---
-        this.wrong_answer_text = this.add.text(width / 2, height - 420, `HINT: ${data.hint}`, {
-            fontSize: '22px', color: '#ffd700', backgroundColor: '#222222',
-            padding: { x: 20, y: 10 }, fontStyle: 'bold', align: 'center',
-            wordWrap: { width: width - 200 }
+        // --- WRONG ANSWER TEXT (Bottom - Overlaps Hint Area) ---
+        this.wrongAnswerText = this.add.text(width / 2, height - 100, "WRONG DOOR! Try another.", {
+            fontSize: '22px', color: '#ff5555', backgroundColor: '#222222',
+            padding: { x: 20, y: 10 }, fontStyle: 'bold', align: 'center'
         }).setOrigin(0.5).setAlpha(0).setDepth(100);
-        this.roomContainer.add(this.wrong_answer_text);
+        this.roomContainer.add(this.wrongAnswerText);
 
+        // --- HINT BUTTON ---
         const hintBtn = this.createHintButton(width, height);
         this.roomContainer.add(hintBtn);
 
@@ -239,10 +215,7 @@ class Play extends Phaser.Scene {
                 if (i === data.correctIndex) {
                     this.handleCorrectAnswer(door);
                 } else {
-                    this.cameras.main.shake(200, 0.01);
-                    this.wrong_answer_text.setText("WRONG DOOR! Try another.");
-                    this.wrong_answer_text.setAlpha(1);
-                    this.wrong_answer_text.setColor('#ff5555');
+                    this.handleWrongAnswer();
                 }
             });
         });
@@ -259,7 +232,11 @@ class Play extends Phaser.Scene {
         container.on('pointerover', () => bg.setFillStyle(0x444444));
         container.on('pointerout', () => bg.setFillStyle(0x333333));
         container.on('pointerdown', () => {
+            // Hide wrong answer if visible
+            this.wrongAnswerText.setAlpha(0);
+            // Show Hint
             this.tweens.add({ targets: this.hintText, alpha: 1, duration: 300 });
+            
             container.disableInteractive();
             bg.setStrokeStyle(2, 0x555555);
             txt.setColor('#888888').setText("HINT USED");
@@ -267,21 +244,37 @@ class Play extends Phaser.Scene {
         return container;
     }
 
+    handleWrongAnswer() {
+        this.cameras.main.shake(200, 0.01);
+        
+        // Hide hint if it was visible, show Warning
+        this.hintText.setAlpha(0);
+        this.wrongAnswerText.setAlpha(1);
+        
+        // Fade out warning after 2 seconds
+        this.tweens.add({
+            targets: this.wrongAnswerText,
+            alpha: 0,
+            delay: 2000,
+            duration: 500
+        });
+    }
+
     handleCorrectAnswer(door) {
         const { width, height } = this.scale;
 
-        // 1. Lock Interaction
+        // Lock Interaction
         this.roomContainer.each(child => {
             if (child.input) child.disableInteractive();
         });
 
-        // 2. Success Visuals
+        // Success Visuals
         this.cameras.main.flash(300, 0, 255, 0);
         const successText = this.add.text(width/2, height/2, "CORRECT!", { 
             fontSize: '64px', color: '#4ade80', stroke: '#000', strokeThickness: 6
         }).setOrigin(0.5).setDepth(200);
 
-        // 3. Wait 1 second, then try to move on
+        // Wait, then move on
         this.time.delayedCall(1000, () => {
             successText.destroy();
             this.tryNextLevel();
@@ -289,23 +282,15 @@ class Play extends Phaser.Scene {
     }
 
     tryNextLevel() {
-        // Scenario A: AI is fast, data is already waiting
         if (this.nextQuestionData) {
             this.transitionToNextLevel();
-        } 
-        // Scenario B: AI is slow, we must wait
-        else {
+        } else {
             this.waitingForNext = true;
-            
-            // Clean up the old room so it doesn't look stuck
             this.roomContainer.removeAll(true);
-            
-            // Show a "Door Unlocking" message instead of "Loading"
             this.loadingText = this.add.text(this.scale.width / 2, this.scale.height / 2, 'Unlocking next chamber...', {
                 fontSize: '24px', color: '#aaaaaa', align: 'center', fontStyle: 'italic'
             }).setOrigin(0.5);
 
-            // If the fetch failed previously or hasn't started, kick it again
             if (!this.isFetching) {
                 this.fetchQuestion(false);
             }
@@ -314,15 +299,9 @@ class Play extends Phaser.Scene {
 
     transitionToNextLevel() {
         if (this.loadingText) this.loadingText.destroy();
-        
-        // Retrieve data
         const nextData = this.nextQuestionData;
-        this.nextQuestionData = null; // Clear storage
-        
-        // Build new room
+        this.nextQuestionData = null; 
         this.setupRoom(nextData);
-        
-        // Start pre-fetching the NEXT NEXT question
         this.fetchQuestion(false);
     }
 }
