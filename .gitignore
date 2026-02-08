@@ -1,1 +1,6 @@
 /lib
+node_modules/
+server/node_modules/
+
+stable-diffusion-webui/
+stable-diffusion-webuild/
