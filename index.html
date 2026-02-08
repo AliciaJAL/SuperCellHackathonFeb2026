@@ -14,10 +14,11 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
     <script src="./src/scenes/Load.js"></script>
+    <script src="./src/scenes/Menu.js"></script>
     <script src="./src/scenes/Play.js"></script>
-    <script src="./src/main.js"></script>
 
     <style>
+        /* --- CSS STYLES --- */
         :root {
             --bg-overlay: rgba(20, 20, 30, 0.95);
             --accent: #8b5cf6;
@@ -29,28 +30,37 @@
         body {
             margin: 0;
             background-color: #000;
+            /* Subtle grid background */
+            background-image: radial-gradient(#333 1px, transparent 1px);
+            background-size: 40px 40px;
             font-family: 'Segoe UI', sans-serif;
             overflow: hidden;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         canvas {
             display: block;
             width: 100%;
             height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 0;
         }
 
+        /* MENU UI CONTAINER */
         #menu-ui {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
+            position: relative;
             width: 90%;
-            max-width: 450px;
+            max-width: 500px;
             background: var(--bg-overlay);
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.1);
             box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
-            padding: 2rem;
+            padding: 2.5rem;
             border-radius: 16px;
             color: var(--text);
             text-align: center;
@@ -62,6 +72,8 @@
             font-family: 'Press Start 2P', cursive;
             color: var(--accent);
             margin-bottom: 1.5rem;
+            font-size: 1.5rem;
+            text-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
         }
 
         textarea {
@@ -76,6 +88,7 @@
             resize: none;
             box-sizing: border-box;
             transition: border-color 0.3s;
+            font-size: 1rem;
         }
 
         textarea:focus {
@@ -88,24 +101,32 @@
             position: relative;
         }
 
+        /* Hidden file input, styled label */
+        input[type="file"] {
+            display: none;
+        }
+
         .custom-file-upload {
             display: inline-block;
-            padding: 10px 20px;
+            padding: 12px 20px;
             cursor: pointer;
             background: #3f3f50;
             border-radius: 8px;
-            font-size: 0.9rem;
+            font-size: 0.95rem;
             width: 100%;
             box-sizing: border-box;
             border: 1px dashed #666;
-            transition: background 0.3s;
+            transition: background 0.3s, border-color 0.3s;
+            color: #ddd;
         }
 
         .custom-file-upload:hover {
             background: #4f4f65;
             border-color: var(--accent);
+            color: white;
         }
 
+        /* START BUTTON */
         #start-game {
             background: var(--accent);
             color: white;
@@ -119,6 +140,8 @@
             transition: transform 0.1s, background 0.3s;
             text-transform: uppercase;
             letter-spacing: 1px;
+            font-family: 'Press Start 2P', cursive;
+            margin-top: 1rem;
         }
 
         #start-game:hover {
@@ -130,11 +153,18 @@
             transform: translateY(0);
         }
 
+        #start-game:disabled {
+            background: #555;
+            cursor: not-allowed;
+            transform: none;
+        }
+
         #loading-msg {
             display: none;
-            margin-top: 10px;
-            font-size: 0.8rem;
+            margin-top: 15px;
+            font-size: 0.9rem;
             color: #ccc;
+            font-style: italic;
         }
     </style>
 </head>
@@ -148,18 +178,20 @@
 
         <div class="file-upload-container">
             <label for="file-input" class="custom-file-upload">
-                <span id="file-label">📂 Click to Upload PDF or Text</span>
+                <span id="file-label">📂 Upload PDF or Text File</span>
             </label>
             <input type="file" id="file-input" accept=".txt,.pdf" />
         </div>
 
-        <button id="start-game">Enter Dungeon</button>
-        <div id="loading-msg">Decrypting notes...</div>
+        <button id="start-game">ENTER DUNGEON</button>
+        <div id="loading-msg">Decrypting Intel...</div>
     </div>
 
     <script>
+        // --- PDF WORKER SETUP ---
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
+        // --- DOM ELEMENTS ---
         const fileInput = document.getElementById('file-input');
         const fileLabel = document.getElementById('file-label');
         const notesInput = document.getElementById('notes-input');
@@ -167,26 +199,41 @@
         const menuUi = document.getElementById('menu-ui');
         const loadingMsg = document.getElementById('loading-msg');
 
+        // --- EVENT: File Selected ---
         fileInput.addEventListener('change', (e) => {
             if (e.target.files.length > 0) {
                 fileLabel.innerText = "✅ " + e.target.files[0].name;
+                // Clear textarea if file is selected to avoid confusion
+                notesInput.value = "";
+                notesInput.placeholder = "Using file: " + e.target.files[0].name;
             }
         });
 
+        // --- EVENT: Start Game ---
         startBtn.addEventListener('click', async () => {
             let finalNotes = "";
 
+            // UI State: Loading
             startBtn.disabled = true;
             loadingMsg.style.display = "block";
+            loadingMsg.innerText = "Reading data...";
 
             try {
+                // 1. Check Text Area first (Priority)
                 if (notesInput.value.trim().length > 0) {
+                    console.log("Reading from Text Area...");
                     finalNotes = notesInput.value;
-                } else if (fileInput.files.length > 0) {
+                }
+                // 2. Check File Upload
+                else if (fileInput.files.length > 0) {
+                    console.log("Reading from PDF/File...");
                     const file = fileInput.files[0];
+
                     if (file.type === "application/pdf") {
+                        loadingMsg.innerText = "Parsing PDF...";
                         finalNotes = await extractTextFromPDF(file);
                     } else {
+                        // Plain text file
                         finalNotes = await file.text();
                     }
                 } else {
@@ -195,22 +242,21 @@
                     return;
                 }
 
-                if (!finalNotes.trim()) {
-                    alert("Could not read text from that file.");
-                    resetUI();
-                    return;
+                // 3. Validation
+                if (!finalNotes || finalNotes.trim().length === 0) {
+                    throw new Error("Extracted text is empty.");
                 }
 
-                // Store notes globally for Phaser
-                window.gameNotes = finalNotes
-                    .split('\n')
-                    .map(line => line.trim())
-                    .filter(l => l.length > 0);
+                console.log("--- TEXT CAPTURED SUCCESSFULLY ---");
+                // Store notes globally so Phaser scenes can access them
+                window.gameNotes = finalNotes;
+
+                // 4. Start the Game
                 startPhaserGame();
 
             } catch (error) {
-                console.error(error);
-                alert("Error reading file. Try a simpler text file.");
+                console.error("Error reading input:", error);
+                alert("Error reading file: " + error.message);
                 resetUI();
             }
         });
@@ -220,32 +266,48 @@
             loadingMsg.style.display = "none";
         }
 
+        // --- HELPER: Extract Text from PDF ---
         async function extractTextFromPDF(file) {
             const arrayBuffer = await file.arrayBuffer();
             const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
             let fullText = "";
+
+            // Loop through all pages
             for (let i = 1; i <= pdf.numPages; i++) {
                 const page = await pdf.getPage(i);
                 const textContent = await page.getTextContent();
-                fullText += textContent.items.map(item => item.str).join(" ") + "\n";
+
+                // Combine text items on the page
+                const pageText = textContent.items.map(item => item.str).join(" ");
+                fullText += pageText + "\n";
             }
             return fullText;
         }
 
+        // --- HELPER: Start Phaser ---
         function startPhaserGame() {
-            // Hide menu
+            // Fade out Menu
             menuUi.style.opacity = '0';
-            setTimeout(() => { menuUi.style.display = 'none'; }, 500);
+            setTimeout(() => {
+                menuUi.style.display = 'none';
+            }, 500);
 
-            // Start Phaser game
+            // Destroy previous game instance if exists
+            if (window.gameInstance) {
+                window.gameInstance.destroy(true);
+            }
+
+            // Initialize Phaser Game
             const config = {
                 type: Phaser.AUTO,
-                width: 800,
-                height: 600,
+                width: window.innerWidth,
+                height: window.innerHeight,
                 parent: document.body,
-                scene: [Load, Play]
+                backgroundColor: '#000000',
+                scene: [Load, Play] // Ensure these match your actual class names
             };
-            new Phaser.Game(config);
+
+            window.gameInstance = new Phaser.Game(config);
         }
     </script>
 

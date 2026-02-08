@@ -4,24 +4,46 @@ class Play extends Phaser.Scene {
     }
 
     init(data) {
-        this.notes = data.notes; // receive notes from Load scene
+        // 1. Priority: Data passed from Load Scene
+        if (data && data.notes) {
+            this.notes = data.notes;
+        } 
+        // 2. Fallback: Global variable
+        else if (window.gameNotes) {
+            this.notes = window.gameNotes;
+        }
+        
+        // 3. Ensure it's a string (Safety Check)
+        if (Array.isArray(this.notes)) {
+            this.notes = this.notes.join("\n");
+        }
     }
 
     create() {
-        if (!this.notes || this.notes.length === 0) {
-            console.error('No notes provided');
+        const { width, height } = this.scale;
+
+        // Background
+        this.add.rectangle(0, 0, width, height, 0x111111).setOrigin(0);
+
+        // Loading Text
+        this.loadingText = this.add.text(width / 2, height / 2, 'Sending data to AI...', {
+            fontSize: '24px', color: '#ffffff', align: 'center', fontFamily: 'sans-serif'
+        }).setOrigin(0.5);
+
+        // Validation
+        if (!this.notes || typeof this.notes !== 'string' || this.notes.trim().length === 0) {
+            console.error("Notes Error:", this.notes);
+            this.handleError("No text found.\nPlease reload and paste text again.");
             return;
         }
 
-        // Background placeholder while fetching question
-        this.add.text(
-            this.cameras.main.width / 2,
-            this.cameras.main.height / 2,
-            "Generating your question...",
-            { fontSize: '24px', color: '#ffffff' }
-        ).setOrigin(0.5);
+        // Send to AI
+        this.fetchQuestion();
+    }
 
-        // Fetch question from backend
+    fetchQuestion() {
+        console.log("Sending to Server...");
+        
         fetch('http://localhost:3000/api/generate-question', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -29,102 +51,50 @@ class Play extends Phaser.Scene {
         })
         .then(res => res.json())
         .then(data => {
-            console.log('Question received from backend:', data);
-        
-            if (data.error) {
-                console.error('Backend returned an error:', data.error);
-                // Use a fallback question
-                this.questionData = {
-                    question: "What is 2 + 2?",
-                    answers: ["3", "4", "5"],
-                    correctIndex: 1,
-                    hint: "It's the number after 3"
-                };
-            } else {
-                this.questionData = data;
-            }
-        
-            this.setupRoom();
+            console.log("AI Data Received:", data);
+            this.loadingText.destroy();
+            this.setupRoom(data);
         })
         .catch(err => {
-            console.error('Failed to generate question:', err);
-            this.add.text(
-                this.cameras.main.width / 2,
-                this.cameras.main.height / 2 + 50,
-                "Failed to load question. Refresh and try again.",
-                { fontSize: '18px', color: '#ff0000' }
-            ).setOrigin(0.5);
+            console.error(err);
+            this.handleError("Server connection failed.\nIs 'node server/index.js' running?");
         });
     }
 
-    setupRoom() {
-        const { width, height } = this.cameras.main;
+    handleError(msg) {
+        if (this.loadingText) this.loadingText.destroy();
+        this.add.text(this.scale.width/2, this.scale.height/2, msg, {
+            color: '#ff5555', fontSize: '24px', align: 'center'
+        }).setOrigin(0.5);
+    }
 
-        // Clear previous text
-        this.children.removeAll();
+    setupRoom(data) {
+        const { width, height } = this.scale;
 
-        // Background
-        this.add.sprite(width / 2, height / 2, 'background')
-            .setDisplaySize(width, height);
+        // Show Question
+        this.add.text(width / 2, 100, data.question, {
+            fontSize: '28px', color: '#ffffff', wordWrap: { width: width - 100 }, align: 'center'
+        }).setOrigin(0.5);
 
-        // Question Text
-        this.questionText = this.add.text(
-            width / 2,
-            height / 6,
-            this.questionData.question,
-            { fontSize: '48px', color: '#0000000', wordWrap: { width: 600 }, align: 'center' }
-        ).setOrigin(0.5);
-
-        // Door positions
-        const doorY = (height / 2) + 50;
-        const positions = [width / 6, width / 2, (width / 6) * 5];
-
-        // Doors and answers
-        this.doors = [];
-        this.answerTexts = [];
-        for (let i = 0; i < 3; i++) {
-            const isCorrect = i === this.questionData.correctIndex;
-            const doorKey = isCorrect ? 'correctDoor' : 'wrongDoor';
-
-            const door = this.add.sprite(positions[i], doorY, doorKey)
+        // Show Answers (Clickable)
+        const startX = width * 0.2;
+        const gap = width * 0.3;
+        
+        data.answers.forEach((ans, i) => {
+            const btn = this.add.rectangle(startX + (i*gap), height/2 + 100, 150, 200, 0x2d2d3a)
                 .setInteractive()
-                .setScale(0.5);
-            this.doors.push(door);
-
-            const answerText = this.add.text(
-                positions[i],
-                doorY - 80,
-                this.questionData.answers[i],
-                { fontSize: '24px', color: '#000000', wordWrap: { width: 150 }, align: 'center' }
-            ).setOrigin(0.5);
-            this.answerTexts.push(answerText);
-        }
-
-        // Hint Text
-        this.hintText = this.add.text(
-            width / 2,
-            height - 50,
-            "",
-            { fontSize: '20px', color: '#ffeb3b', wordWrap: { width: 600 }, align: 'center' }
-        ).setOrigin(0.5);
-
-        // Assign door click handlers
-        this.assignDoorAnswers();
-    }
-
-    assignDoorAnswers() {
-        this.doors.forEach((door, i) => {
-            door.on('pointerdown', () => this.handleDoorChoice(i));
+                .setStrokeStyle(2, 0x8b5cf6);
+            
+            this.add.text(btn.x, btn.y + 120, ans, { fontSize: '16px', wordWrap: {width: 140}, align: 'center' }).setOrigin(0.5);
+            
+            btn.on('pointerdown', () => {
+                if (i === data.correctIndex) {
+                    this.add.text(width/2, height-100, "CORRECT! Reloading...", { color: '#4ade80', fontSize: '32px' }).setOrigin(0.5);
+                    this.time.delayedCall(2000, () => this.scene.restart());
+                } else {
+                    this.cameras.main.shake(200, 0.01);
+                }
+            });
         });
-    }
-
-    handleDoorChoice(choiceIndex) {
-        if (choiceIndex === this.questionData.correctIndex) {
-            this.hintText.setText("✅ Correct! Proceed to the next room.");
-            // Optional: move to next scene after a delay
-            // this.time.delayedCall(1500, () => this.scene.start('nextScene'));
-        } else {
-            this.hintText.setText("💡 Hint: " + this.questionData.hint);
-        }
     }
 }
