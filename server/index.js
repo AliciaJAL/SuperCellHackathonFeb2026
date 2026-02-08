@@ -7,8 +7,9 @@ const PORT = 3000;
 // CONNECTION SETTINGS
 const MISTRAL_URL = 'https://api.mistral.ai/v1/chat/completions';
 const MODEL_NAME = 'mistral-small-latest';
-const nums_and_letters_yay = 'fIlVjpcj' + 'NSbmE47R' +
-'kUrnya0Vrm2tBUdb'
+
+// Note: In production, never hardcode keys! But for a hackathon, this works.
+const API_KEY = 'fIlVjpcj' + 'NSbmE47R' + 'kUrnya0Vrm2tBUdb'; 
 
 app.use(cors());
 app.use(express.json());
@@ -30,34 +31,34 @@ app.post('/api/generate-question', async (req, res) => {
 
     // --- IMPROVED PROMPT FOR USER-DEFINED SETTINGS ---
     const system_prompt = `
-You are a creative quiz master with the following characteristics:
-- TONE: ${tone}
-- THEME: ${theme}
-- STYLE: ${artStyle}
+    You are a creative quiz master with the following characteristics:
+    - TONE: ${tone}
+    - THEME: ${theme}
+    - STYLE: ${artStyle}
 
-Adopt the "${tone}" tone in your language and phrasing.
-Incorporate "${theme}" themed references when appropriate (but keep questions focused on the actual content).
-Let the "${artStyle}" style influence how you describe scenarios if relevant.
+    Adopt the "${tone}" tone in your language and phrasing.
+    Incorporate "${theme}" themed references when appropriate (but keep questions focused on the actual content).
+    Let the "${artStyle}" style influence how you describe scenarios if relevant.
 
-Your job is to generate engaging, accurate questions that test knowledge while matching these characteristics.
+    Your job is to generate engaging, accurate questions that test knowledge while matching these characteristics.
 
-TASK:
-Generate 1 multiple-choice question based on the context provided by the user.
+    TASK:
+    Generate 1 multiple-choice question based on the context provided by the user.
 
-CRITICAL INSTRUCTION FOR HINTS:
-The "hint" must be a specific conceptual clue related to the answer. 
-- BAD HINT: "Read the first sentence." or "Look closely." or "It's in the text."
-- GOOD HINT: "Think about which organ processes oxygen." or "Remember the date of the signing."
+    CRITICAL INSTRUCTION FOR HINTS:
+    The "hint" must be a specific conceptual clue related to the answer. 
+    - BAD HINT: "Read the first sentence." or "Look closely." or "It's in the text."
+    - GOOD HINT: "Think about which organ processes oxygen." or "Remember the date of the signing."
 
-STRICT JSON FORMAT:
-{
-  "question": "The question text (in the ${tone} tone)",
-  "answers": ["Option A", "Option B", "Option C"],
-  "correctIndex": 0,
-  "hint": "A specific conceptual clue (max 10 words)"
-}
+    STRICT JSON FORMAT:
+    {
+      "question": "The question text (in the ${tone} tone)",
+      "answers": ["Option A", "Option B", "Option C"],
+      "correctIndex": 0,
+      "hint": "A specific conceptual clue (max 10 words)"
+    }
 
-Respond ONLY with the JSON. Do not add markdown formatting or extra text.`;
+    Respond ONLY with the JSON. Do not add markdown formatting or extra text.`;
 
     const userPrompt = `Generate a question with a "${tone}" tone about this context:\n\n${notes}`;
 
@@ -66,33 +67,37 @@ Respond ONLY with the JSON. Do not add markdown formatting or extra text.`;
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${nums_and_letters_yay}`
+                'Authorization': `Bearer ${API_KEY}`,
+                'Accept': 'application/json'
             },
             body: JSON.stringify({
                 model: MODEL_NAME,
                 messages: [
                     { role: 'system', content: system_prompt },
-                    { role: 'user', content: userPrompt }
+                    { role: 'user', content: `Context Notes:\n${notes}` }
                 ],
                 temperature: 0.75,   // Balanced for creative user inputs
             })
         });
 
         if (!response.ok) {
-            throw new Error(`Mistral API Error: ${response.statusText}`);
+            const errorText = await response.text();
+            throw new Error(`Mistral API Error: ${response.status} - ${errorText}`);
         }
 
         const data = await response.json();
+        
+        // Mistral response structure
         const generatedText = data.choices[0].message.content;
-
         console.log("🤖 Mistral replied:", generatedText);
 
         // Parse the result
         let gameData;
         try {
+            // Attempt standard parse
             gameData = JSON.parse(generatedText);
         } catch (parseError) {
-            // Clean up if the model adds markdown ticks like ```json ... ```
+            // Fallback: Clean up if the model adds markdown ticks like ```json ... ```
             const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
                 gameData = JSON.parse(jsonMatch[0]);
@@ -111,5 +116,5 @@ Respond ONLY with the JSON. Do not add markdown formatting or extra text.`;
 
 app.listen(PORT, () => {
     console.log(`\n🚀 Server running at http://localhost:${PORT}`);
-    console.log(`🔗 Connected to Mistral API at ${MISTRAL_URL}`);
+    console.log(`🔗 Connected to Mistral API`);
 });
