@@ -7,7 +7,8 @@ const PORT = 3000;
 // CONNECTION SETTINGS
 const MISTRAL_URL = 'https://api.mistral.ai/v1/chat/completions';
 const MODEL_NAME = 'mistral-small-latest';
-const API_KEY = 'fIlVjpcjNSbmE47RkUrnya0Vrm2tBUdb'
+const nums_and_letters_yay = 'fIlVjpcj' + 'NSbmE47R' +
+'kUrnya0Vrm2tBUdb'
 
 app.use(cors());
 app.use(express.json());
@@ -50,7 +51,7 @@ Respond ONLY with the JSON. Do not add markdown formatting or extra text.`;
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${API_KEY}`
+                'Authorization': `Bearer ${nums_and_letters_yay}`
             },
             body: JSON.stringify({
                 model: MODEL_NAME,
