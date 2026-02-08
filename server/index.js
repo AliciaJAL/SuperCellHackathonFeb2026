@@ -5,8 +5,9 @@ const app = express();
 const PORT = 3000;
 
 // CONNECTION SETTINGS
-const OLLAMA_URL = 'http://127.0.0.1:11434/api/generate';
-const MODEL_NAME = 'llama3.2:3b';
+const MISTRAL_URL = 'https://api.mistral.ai/v1/chat/completions';
+const MODEL_NAME = 'mistral-small-latest';
+const API_KEY = 'fIlVjpcjNSbmE47RkUrnya0Vrm2tBUdb'
 
 app.use(cors());
 app.use(express.json());
@@ -21,7 +22,7 @@ app.post('/api/generate-question', async (req, res) => {
     console.log("📝 Received notes. Asking Ollama to generate a question...");
 
     // --- IMPROVED PROMPT FOR BETTER HINTS ---
-    const prompt = `
+    const system_prompt = `
 You are a Dungeon Master designed to test knowledge based on the provided text.
 
 TASK:
@@ -40,32 +41,35 @@ STRICT JSON FORMAT:
   "hint": "A specific conceptual clue (max 10 words)"
 }
 
-Respond ONLY with the JSON. Do not add markdown formatting or extra text.
+Respond ONLY with the JSON. Do not add markdown formatting or extra text.`;
 
-CONTEXT:
-${notes}
-    `;
+    const userPrompt = `Generate a question based on this context:\n\n${notes}`;
 
     try {
-        const response = await fetch(OLLAMA_URL, {
+        const response = await fetch(MISTRAL_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${API_KEY}`
+            },
             body: JSON.stringify({
                 model: MODEL_NAME,
-                prompt: prompt,
-                stream: false,
-                format: "json" // Forces Llama 3 to output valid JSON
+                messages: [
+                    { role: 'system', content: system_prompt },
+                    { role: 'user', content: userPrompt }
+                ],
+                temperature: 0.7,   // Changes output based on deterministic(low value) vs creative (hight value)
             })
         });
 
         if (!response.ok) {
-            throw new Error(`Ollama API Error: ${response.statusText}`);
+            throw new Error(`Mistral API Error: ${response.statusText}`);
         }
 
         const data = await response.json();
-        const generatedText = data.response;
+        const generatedText = data.choices[0].message.content;
 
-        console.log("🤖 Ollama replied:", generatedText);
+        console.log("🤖 Mistral replied:", generatedText);
 
         // Parse the result
         let gameData;
@@ -77,7 +81,7 @@ ${notes}
             if (jsonMatch) {
                 gameData = JSON.parse(jsonMatch[0]);
             } else {
-                throw new Error("Could not parse JSON from Ollama response");
+                throw new Error("Could not parse JSON from Mistral response");
             }
         }
         
@@ -91,5 +95,5 @@ ${notes}
 
 app.listen(PORT, () => {
     console.log(`\n🚀 Server running at http://localhost:${PORT}`);
-    console.log(`🔗 Connected to Ollama at ${OLLAMA_URL}`);
+    console.log(`🔗 Connected to Mistral API at ${MISTRAL_URL}`);
 });
