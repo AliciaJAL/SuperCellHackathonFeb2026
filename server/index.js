@@ -27,8 +27,7 @@ app.post('/api/generate-question', async (req, res) => {
     ${notes}
 
     TASK:
-    Analyze the content above and create a multiple-choice question that tests understanding of the material. The question should be clear and concise, with three answer options. Only one option should be correct.
-    Generate 1 multiple-choice question based on the context above.
+    Analyze the content above and create a multiple-choice question that tests understanding of the material. The question should be clear and concise, with three answer options. Only one option should be correct. Also make a hint that can help the player.
     
     STRICT JSON FORMAT:
     {
