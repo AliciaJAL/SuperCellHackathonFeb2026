@@ -4,6 +4,7 @@ class Play extends Phaser.Scene {
         this.nextQuestionData = null; // Stores the invisible next question
         this.isFetching = false;      // Prevents double-fetching
         this.waitingForNext = false;  // Tracks if user is waiting on the AI
+        this.currentQuestionNumber = 0; //Track number of questions
     }
 
     preload() {
@@ -158,6 +159,27 @@ class Play extends Phaser.Scene {
     }
 
     setupRoom(data) {
+        // Increment question counter
+        this.currentQuestionNumber++;
+    
+        // Check if we've reached the limit
+        const maxQuestions = window.gameSettings?.numQuestions || 5;
+        if (this.currentQuestionNumber > maxQuestions) {
+            // Game complete - show simple message
+            this.roomContainer.removeAll(true);
+            const { width, height } = this.scale;
+            this.add.text(width/2, height/2, 
+                `Quest Complete!\n\nYou answered ${this.currentQuestionNumber - 1} questions!`, 
+                { 
+                    fontSize: '32px', 
+                    color: '#4ade80', 
+                    align: 'center',
+                    fontFamily: '"Segoe UI", sans-serif'
+                }
+            ).setOrigin(0.5);
+            return;
+        }
+    
         // Clear previous room content
         this.roomContainer.removeAll(true); // 'true' destroys children
         this.waitingForNext = false; // Reset waiting flag

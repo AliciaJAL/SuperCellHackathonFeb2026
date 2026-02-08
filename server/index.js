@@ -15,19 +15,35 @@ app.use(cors());
 app.use(express.json());
 
 app.post('/api/generate-question', async (req, res) => {
-    const { notes } = req.body;
+    const { notes, settings } = req.body;
 
     if (!notes || notes.length === 0) {
         return res.status(400).json({ error: 'No notes provided' });
     }
 
-    console.log("📝 Received notes. Asking Mistral to generate a question...");
+    // Extract settings - use whatever the user typed, or defaults
+    const tone = settings?.tone?.trim() || 'educational';
+    const theme = settings?.theme?.trim() || 'dungeon';
+    const artStyle = settings?.artStyle?.trim() || 'pixel art';
+    const numQuestions = settings?.numQuestions || 5;
 
+    console.log(`📝 Generating question with tone: "${tone}", theme: "${theme}"`);
+
+    // --- IMPROVED PROMPT FOR USER-DEFINED SETTINGS ---
     const system_prompt = `
-    You are a Dungeon Master designed to test knowledge based on the provided text.
+    You are a creative quiz master with the following characteristics:
+    - TONE: ${tone}
+    - THEME: ${theme}
+    - STYLE: ${artStyle}
+
+    Adopt the "${tone}" tone in your language and phrasing.
+    Incorporate "${theme}" themed references when appropriate (but keep questions focused on the actual content).
+    Let the "${artStyle}" style influence how you describe scenarios if relevant.
+
+    Your job is to generate engaging, accurate questions that test knowledge while matching these characteristics.
 
     TASK:
-    Generate 1 multiple-choice question based on the context below.
+    Generate 1 multiple-choice question based on the context provided by the user.
 
     CRITICAL INSTRUCTION FOR HINTS:
     The "hint" must be a specific conceptual clue related to the answer. 
@@ -36,14 +52,15 @@ app.post('/api/generate-question', async (req, res) => {
 
     STRICT JSON FORMAT:
     {
-      "question": "The question text",
+      "question": "The question text (in the ${tone} tone)",
       "answers": ["Option A", "Option B", "Option C"],
       "correctIndex": 0,
       "hint": "A specific conceptual clue (max 10 words)"
     }
 
-    Respond ONLY with the JSON. Do not add markdown formatting or extra text.
-    `;
+    Respond ONLY with the JSON. Do not add markdown formatting or extra text.`;
+
+    const userPrompt = `Generate a question with a "${tone}" tone about this context:\n\n${notes}`;
 
     try {
         const response = await fetch(MISTRAL_URL, {
@@ -59,8 +76,7 @@ app.post('/api/generate-question', async (req, res) => {
                     { role: 'system', content: system_prompt },
                     { role: 'user', content: `Context Notes:\n${notes}` }
                 ],
-                temperature: 0.7,
-                response_format: { type: "json_object" } // Mistral supports JSON mode now!
+                temperature: 0.75,   // Balanced for creative user inputs
             })
         });
 
