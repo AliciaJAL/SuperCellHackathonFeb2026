@@ -6,6 +6,11 @@ class Play extends Phaser.Scene {
         this.waitingForNext = false;  // Tracks if user is waiting on the AI
     }
 
+    preload() {
+        // Load your bubbly X image (save as 'assets/exit.png')
+        this.load.image('exit_button', 'assets/exit_button.png');
+    }
+
     init(data) {
         // Handle notes data
         if (data && data.notes) {
@@ -46,6 +51,55 @@ class Play extends Phaser.Scene {
 
         // 5. Fetch the FIRST question immediately
         this.fetchQuestion(true); 
+
+        const exitButton = this.add.image(25, 10, 'exit_button')  // Adjust x/y and scale to fit your layout
+            .setOrigin(0, 0)
+            .setDepth(1000)          // always on top
+            .setInteractive({ useHandCursor: true })
+            .setScale(0.1);          // Adjust scale for desired size (e.g., ~40-50px)
+
+        // Hover effect
+        exitButton.on('pointerover', () => {
+            exitButton.setStyle({ backgroundColor: '#aa0000' });
+        });
+
+        exitButton.on('pointerout', () => {
+            exitButton.setStyle({ backgroundColor: '#000000' });
+        });
+
+        // Click → return to Menu
+        exitButton.on('pointerdown', () => {
+            // Stop Phaser
+            this.game.destroy(true);
+
+            // Restore HTML menu
+            const menuUi = document.getElementById('menu-ui');
+            const settingsUi = document.getElementById('settings-ui');
+            const startBtn = document.getElementById('start-game');
+            const loadingMsg = document.getElementById('loading-msg');
+            const fileInput = document.getElementById('file-input');
+            const fileLabel = document.getElementById('file-label');
+            const notesInput = document.getElementById('notes-input');
+            // Reset UI state
+            startBtn.disabled = false;
+            loadingMsg.style.display = 'none';
+            loadingMsg.innerText = '';
+                    fileInput.value = '';
+            fileLabel.innerText = '📂 Upload PDF or Text File';
+
+            notesInput.value = '';
+            notesInput.placeholder = 'Paste your study notes here directly...';
+
+            // Show menu
+            menuUi.style.display = 'block';
+            settingsUi.style.display = 'block';
+
+            // Force reflow for fade-in
+            requestAnimationFrame(() => {
+                menuUi.style.opacity = '1';
+                settingsUi.style.opacity = '1';
+            });
+        });
     }
 
     /**
@@ -120,12 +174,20 @@ class Play extends Phaser.Scene {
         this.roomContainer.add(qText);
 
         // --- HINT SYSTEM ---
-        this.hintText = this.add.text(width / 2, height - 100, `HINT: ${data.hint}`, {
+        this.hintText = this.add.text(width / 2, height - 475, `HINT: ${data.hint}`, {
             fontSize: '22px', color: '#ffd700', backgroundColor: '#222222',
             padding: { x: 20, y: 10 }, fontStyle: 'bold', align: 'center',
             wordWrap: { width: width - 200 }
         }).setOrigin(0.5).setAlpha(0).setDepth(100);
         this.roomContainer.add(this.hintText);
+
+        // --- WRONG ANSWER SYSTEM ---
+        this.wrong_answer_text = this.add.text(width / 2, height - 420, `HINT: ${data.hint}`, {
+            fontSize: '22px', color: '#ffd700', backgroundColor: '#222222',
+            padding: { x: 20, y: 10 }, fontStyle: 'bold', align: 'center',
+            wordWrap: { width: width - 200 }
+        }).setOrigin(0.5).setAlpha(0).setDepth(100);
+        this.roomContainer.add(this.wrong_answer_text);
 
         const hintBtn = this.createHintButton(width, height);
         this.roomContainer.add(hintBtn);
@@ -156,9 +218,9 @@ class Play extends Phaser.Scene {
                     this.handleCorrectAnswer(door);
                 } else {
                     this.cameras.main.shake(200, 0.01);
-                    this.hintText.setText("WRONG DOOR! Try another.");
-                    this.hintText.setAlpha(1);
-                    this.hintText.setColor('#ff5555');
+                    this.wrong_answer_text.setText("WRONG DOOR! Try another.");
+                    this.wrong_answer_text.setAlpha(1);
+                    this.wrong_answer_text.setColor('#ff5555');
                 }
             });
         });
