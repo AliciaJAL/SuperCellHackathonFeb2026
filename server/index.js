@@ -20,24 +20,30 @@ app.post('/api/generate-question', async (req, res) => {
 
     console.log("📝 Received notes. Asking Ollama to generate a question...");
 
+    // --- IMPROVED PROMPT FOR BETTER HINTS ---
     const prompt = `
-    You are a game engine for an educational escape room.
-    
-    CONTEXT:
-    ${notes}
+You are a Dungeon Master designed to test knowledge based on the provided text.
 
-    TASK:
-    Analyze the content above and create a multiple-choice question that tests understanding of the material. The question should be clear and concise, with three answer options. Only one option should be correct. Also make a hint that can help the player.
-    
-    STRICT JSON FORMAT:
-    {
-      "question": "The question text",
-      "answers": ["Option A", "Option B", "Option C"],
-      "correctIndex": 0,
-      "hint": "A short hint"
-    }
+TASK:
+Generate 1 multiple-choice question based on the context below.
 
-    Respond ONLY with the JSON. Do not add markdown formatting or extra text.
+CRITICAL INSTRUCTION FOR HINTS:
+The "hint" must be a specific conceptual clue related to the answer. 
+- BAD HINT: "Read the first sentence." or "Look closely." or "It's in the text."
+- GOOD HINT: "Think about which organ processes oxygen." or "Remember the date of the signing."
+
+STRICT JSON FORMAT:
+{
+  "question": "The question text",
+  "answers": ["Option A", "Option B", "Option C"],
+  "correctIndex": 0,
+  "hint": "A specific conceptual clue (max 10 words)"
+}
+
+Respond ONLY with the JSON. Do not add markdown formatting or extra text.
+
+CONTEXT:
+${notes}
     `;
 
     try {
@@ -48,7 +54,7 @@ app.post('/api/generate-question', async (req, res) => {
                 model: MODEL_NAME,
                 prompt: prompt,
                 stream: false,
-                format: "json" // This forces Llama 3 to be well-behaved
+                format: "json" // Forces Llama 3 to output valid JSON
             })
         });
 
@@ -66,7 +72,7 @@ app.post('/api/generate-question', async (req, res) => {
         try {
             gameData = JSON.parse(generatedText);
         } catch (parseError) {
-            // Sometimes models add extra text even with JSON mode, this helps clean it
+            // Clean up if the model adds markdown ticks like ```json ... ```
             const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
                 gameData = JSON.parse(jsonMatch[0]);
