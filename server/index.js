@@ -1,10 +1,13 @@
-// server/index.js
 import express from 'express';
 import cors from 'cors';
-import { exec } from 'child_process';
 
-const app = express();  // <- THIS is the app Node needs
+const app = express();
 const PORT = 3000;
+
+// CONNECTION SETTINGS
+const MISTRAL_URL = 'https://api.mistral.ai/v1/chat/completions';
+const MODEL_NAME = 'mistral-small-latest';
+const API_KEY = 'fIlVjpcjNSbmE47RkUrnya0Vrm2tBUdb'
 
 app.use(cors());
 app.use(express.json());
@@ -16,50 +19,81 @@ app.post('/api/generate-question', async (req, res) => {
         return res.status(400).json({ error: 'No notes provided' });
     }
 
-    const prompt = `
-You are a helpful educational assistant.
-Generate a multiple-choice question from these notes:
+    console.log("📝 Received notes. Asking Ollama to generate a question...");
 
-${notes}
+    // --- IMPROVED PROMPT FOR BETTER HINTS ---
+    const system_prompt = `
+You are a Dungeon Master designed to test knowledge based on the provided text.
 
-Requirements:
-- 1 question
-- 3 answer choices
-- Correct answer indicated as an index
-- Provide a hint
-Respond ONLY in JSON format like this:
+TASK:
+Generate 1 multiple-choice question based on the context below.
 
+CRITICAL INSTRUCTION FOR HINTS:
+The "hint" must be a specific conceptual clue related to the answer. 
+- BAD HINT: "Read the first sentence." or "Look closely." or "It's in the text."
+- GOOD HINT: "Think about which organ processes oxygen." or "Remember the date of the signing."
+
+STRICT JSON FORMAT:
 {
-  "question": "Question text here",
-  "answers": ["Option 1", "Option 2", "Option 3"],
+  "question": "The question text",
+  "answers": ["Option A", "Option B", "Option C"],
   "correctIndex": 0,
-  "hint": "A helpful hint here"
+  "hint": "A specific conceptual clue (max 10 words)"
 }
-`;
 
-    exec(`ollama generate llama3.2:3b "${prompt}"`, (error, stdout, stderr) => {
-        if (error) {
-            console.error('Ollama error:', error);
-            return res.status(500).json({ error: 'LLM generation failed' });
+Respond ONLY with the JSON. Do not add markdown formatting or extra text.`;
+
+    const userPrompt = `Generate a question based on this context:\n\n${notes}`;
+
+    try {
+        const response = await fetch(MISTRAL_URL, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${API_KEY}`
+            },
+            body: JSON.stringify({
+                model: MODEL_NAME,
+                messages: [
+                    { role: 'system', content: system_prompt },
+                    { role: 'user', content: userPrompt }
+                ],
+                temperature: 0.7,   // Changes output based on deterministic(low value) vs creative (hight value)
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Mistral API Error: ${response.statusText}`);
         }
 
-        const jsonStart = stdout.indexOf('{');
-        const jsonEnd = stdout.lastIndexOf('}') + 1;
+        const data = await response.json();
+        const generatedText = data.choices[0].message.content;
 
-        if (jsonStart === -1 || jsonEnd === -1) {
-            return res.status(500).json({ error: 'Invalid LLM output' });
-        }
+        console.log("🤖 Mistral replied:", generatedText);
 
+        // Parse the result
+        let gameData;
         try {
-            const data = JSON.parse(stdout.substring(jsonStart, jsonEnd));
-            res.json(data);
-        } catch (e) {
-            console.error('Failed to parse JSON:', e, 'stdout:', stdout);
-            return res.status(500).json({ error: 'Failed to parse LLM output' });
+            gameData = JSON.parse(generatedText);
+        } catch (parseError) {
+            // Clean up if the model adds markdown ticks like ```json ... ```
+            const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                gameData = JSON.parse(jsonMatch[0]);
+            } else {
+                throw new Error("Could not parse JSON from Mistral response");
+            }
         }
-    });
+        
+        res.json(gameData);
+
+    } catch (error) {
+        console.error('❌ Server Error:', error);
+        res.status(500).json({ error: 'Failed to generate question', details: error.message });
+    }
 });
 
 app.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`);
+    console.log(`\n🚀 Server running at http://localhost:${PORT}`);
+    console.log(`🔗 Connected to Mistral API at ${MISTRAL_URL}`);
 });

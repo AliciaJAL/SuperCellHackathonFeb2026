@@ -1,191 +1,421 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Edu Escape Room</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edu Escape Room</title>
 
-<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Segoe+UI:wght@400;600&display=swap" rel="stylesheet">
-<link rel="icon" type="image/png" href="./assets/1.png">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Segoe+UI:wght@400;600&display=swap"
+        rel="stylesheet">
+    <link rel="icon" type="image/png" href="./assets/1.png">
 
-<script src="./lib/phaser.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="./lib/phaser.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
-<script src="./src/scenes/Load.js"></script>
-<script src="./src/scenes/Play.js"></script>
-<script src="./src/main.js"></script>
+    <script src="./src/scenes/Load.js"></script>
+    <script src="./src/scenes/Menu.js"></script>
+    <script src="./src/scenes/Play.js"></script>
 
-<style>
-    :root {
-        --bg-overlay: rgba(20, 20, 30, 0.95);
-        --accent: #8b5cf6;
-        --accent-hover: #7c3aed;
-        --text: #ffffff;
-        --input-bg: #2d2d3a;
-    }
-    body {
-        margin: 0;
-        background-color: #000;
-        font-family: 'Segoe UI', sans-serif;
-        overflow: hidden;
-    }
-    canvas { display: block; width: 100%; height: 100vh; }
-    #menu-ui {
-        position: absolute;
-        top: 50%; left: 50%;
-        transform: translate(-50%, -50%);
-        width: 90%; max-width: 450px;
-        background: var(--bg-overlay);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255,255,255,0.1);
-        box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-        padding: 2rem;
-        border-radius: 16px;
-        color: var(--text);
-        text-align: center;
-        z-index: 100;
-        transition: opacity 0.5s ease;
-    }
-    h2 { font-family: 'Press Start 2P', cursive; color: var(--accent); margin-bottom: 1.5rem; }
-    textarea {
-        width: 100%; height: 120px;
-        background: var(--input-bg);
-        border: 2px solid transparent;
-        border-radius: 8px;
-        padding: 1rem; color: white; font-family: inherit;
-        resize: none; box-sizing: border-box;
-        transition: border-color 0.3s;
-    }
-    textarea:focus { outline: none; border-color: var(--accent); }
-    .file-upload-container { margin: 1.5rem 0; position: relative; }
-    .custom-file-upload {
-        display: inline-block; padding: 10px 20px; cursor: pointer;
-        background: #3f3f50; border-radius: 8px; font-size: 0.9rem;
-        width: 100%; box-sizing: border-box; border: 1px dashed #666;
-        transition: background 0.3s;
-    }
-    .custom-file-upload:hover { background: #4f4f65; border-color: var(--accent); }
-    #start-game {
-        background: var(--accent); color: white; border: none;
-        padding: 15px 30px; font-size: 1rem; font-weight: bold;
-        border-radius: 8px; cursor: pointer; width: 100%;
-        transition: transform 0.1s, background 0.3s;
-        text-transform: uppercase; letter-spacing: 1px;
-    }
-    #start-game:hover { background: var(--accent-hover); transform: translateY(-2px); }
-    #start-game:active { transform: translateY(0); }
-    #loading-msg { display: none; margin-top: 10px; font-size: 0.8rem; color: #ccc; }
-</style>
+    <style>
+        /* --- CSS STYLES --- */
+        :root {
+            --bg-overlay: rgba(20, 20, 30, 0.95);
+            --accent: #8b5cf6;
+            --accent-hover: #7c3aed;
+            --text: #ffffff;
+            --input-bg: #2d2d3a;
+        }
+
+        body {
+            margin: 0;
+            /* Background image from claud */
+            background: #000 url('pixel_menu_background.png') center/cover no-repeat fixed;
+            font-family: 'Segoe UI', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 0;
+        }
+
+        /* MENU UI CONTAINER */
+        #menu-ui {
+            position: absolute;
+            top: 50%;
+            left: 75%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            max-width: 500px;
+            background: var(--bg-overlay);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            padding: 2.5rem;
+            border-radius: 16px;
+            color: var(--text);
+            text-align: center;
+            z-index: 100;
+            transition: opacity 0.5s ease;
+        }
+
+        h2 {
+            font-family: 'Press Start 2P', cursive;
+            color: var(--accent);
+            margin-bottom: 1.5rem;
+            font-size: 1.5rem;
+            text-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
+        }
+
+        textarea {
+            width: 100%;
+            height: 120px;
+            background: var(--input-bg);
+            border: 2px solid transparent;
+            border-radius: 8px;
+            padding: 1rem;
+            color: white;
+            font-family: inherit;
+            resize: none;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+            font-size: 1rem;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .file-upload-container {
+            margin: 1.5rem 0;
+            position: relative;
+        }
+
+        /* Hidden file input, styled label */
+        input[type="file"] {
+            display: none;
+        }
+
+        .custom-file-upload {
+            display: inline-block;
+            padding: 12px 20px;
+            cursor: pointer;
+            background: #3f3f50;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px dashed #666;
+            transition: background 0.3s, border-color 0.3s;
+            color: #ddd;
+        }
+
+        .custom-file-upload:hover {
+            background: #4f4f65;
+            border-color: var(--accent);
+            color: white;
+        }
+
+        /* START BUTTON */
+        #start-game {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1rem;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            transition: transform 0.1s, background 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-family: 'Press Start 2P', cursive;
+            margin-top: 1rem;
+        }
+
+        #start-game:hover {
+            background: var(--accent-hover);
+            transform: translateY(-2px);
+        }
+
+        #start-game:active {
+            transform: translateY(0);
+        }
+
+        #start-game:disabled {
+            background: #555;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        #loading-msg {
+            display: none;
+            margin-top: 15px;
+            font-size: 0.9rem;
+            color: #ccc;
+            font-style: italic;
+        }
+
+        #settings-ui {
+          position: absolute;
+          top: 50%; right: 120%;
+          transform: translateY(-50%);
+          width: 90%; max-width: 350px;
+          background: var(--bg-overlay);
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(255,255,255,0.1);
+          box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+          padding: 2rem;
+          border-radius: 16px;
+          color: var(--text);
+          z-index: 100;
+          transition: opacity 0.5s ease;
+        }
+
+      .settings-group {
+          margin-bottom: 1.5rem;
+          text-align: left;
+      }
+
+      .settings-group label {
+          display: block;
+          font-size: 0.85rem;
+          font-weight: 600;
+          color: var(--accent);
+          margin-bottom: 0.5rem;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+      }
+
+      .settings-group input[type="number"],
+      .settings-group input[type="text"] {
+          width: 100%;
+          background: var(--input-bg);
+          border: 2px solid transparent;
+          border-radius: 8px;
+          padding: 0.75rem;
+          color: white;
+          font-family: inherit;
+          font-size: 0.95rem;
+          box-sizing: border-box;
+          transition: border-color 0.3s;
+      }
+
+      .settings-group input[type="number"]:focus,
+      .settings-group input[type="text"]:focus {
+          outline: none;
+          border-color: var(--accent);
+      }
+
+      .settings-group input[type="text"]::placeholder {
+          color: #888;
+          font-size: 0.85rem;
+      }
+
+      #settings-ui h2 {
+          text-align: center;
+          font-size: 1rem;
+          margin-bottom: 1.5rem;
+      }
+    </style>
 </head>
 <body>
 
-<div id="menu-ui">
-    <h2>MISSION BRIEFING</h2>
+    <div id="menu-ui">
+        <h2>MISSION BRIEFING</h2>
 
-    <textarea id="notes-input" placeholder="Paste your study notes here directly..."></textarea>
+        <textarea id="notes-input" placeholder="Paste your study notes here directly..."></textarea>
 
-    <div class="file-upload-container">
-        <label for="file-input" class="custom-file-upload">
-            <span id="file-label">📂 Click to Upload PDF or Text</span>
-        </label>
-        <input type="file" id="file-input" accept=".txt,.pdf" />
+        <div class="file-upload-container">
+            <label for="file-input" class="custom-file-upload">
+                <span id="file-label">📂 Upload PDF or Text File</span>
+            </label>
+            <input type="file" id="file-input" accept=".txt,.pdf" />
+        </div>
+
+        <div id="settings-ui">
+            <h2>GAME SETTINGS</h2>
+    
+            <div class="settings-group">
+                <label for="num-questions">Number of Questions</label>
+                <input type="number" id="num-questions" min="1" max="20" value="5">
+            </div>
+        
+            <div class="settings-group">
+                <label for="tone-input">Tone</label>
+                <input type="text" id="tone-input" placeholder="e.g. educational, casual, challenging">
+                </select>
+            </div>
+
+            <div class="settings-group">
+                <label for="theme-input">Theme</label>
+                <input type="text" id="theme-input" placeholder="e.g. dungeon, space station, library">
+                </select>
+            </div>
+
+            <div class="settings-group">
+                <label for="artstyle-input">Art Style</label>
+                <input type="text" id="artstyle-input" placeholder="e.g. pixel art, cartoon, minimal">
+                </select>
+            </div>
+        </div>
+
+        <button id="start-game">Enter Escape Room</button>
+        <div id="loading-msg">Decrypting notes...</div>
     </div>
 
-    <button id="start-game">Enter Dungeon</button>
-    <div id="loading-msg">Decrypting notes...</div>
-</div>
+    <script>
+        // --- PDF WORKER SETUP ---
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-<script>
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        // --- DOM ELEMENTS ---
+        const fileInput = document.getElementById('file-input');
+        const fileLabel = document.getElementById('file-label');
+        const notesInput = document.getElementById('notes-input');
+        const startBtn = document.getElementById('start-game');
+        const menuUi = document.getElementById('menu-ui');
+        const loadingMsg = document.getElementById('loading-msg');
 
-    const fileInput = document.getElementById('file-input');
-    const fileLabel = document.getElementById('file-label');
-    const notesInput = document.getElementById('notes-input');
-    const startBtn = document.getElementById('start-game');
-    const menuUi = document.getElementById('menu-ui');
-    const loadingMsg = document.getElementById('loading-msg');
+        // --- EVENT: File Selected ---
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                fileLabel.innerText = "✅ " + e.target.files[0].name;
+                // Clear textarea if file is selected to avoid confusion
+                notesInput.value = "";
+                notesInput.placeholder = "Using file: " + e.target.files[0].name;
+            }
+        });
 
-    fileInput.addEventListener('change', (e) => {
-        if (e.target.files.length > 0) {
-            fileLabel.innerText = "✅ " + e.target.files[0].name;
-        }
-    });
+        // --- EVENT: Start Game ---
+        startBtn.addEventListener('click', async () => {
+            let finalNotes = "";
 
-    startBtn.addEventListener('click', async () => {
-        let finalNotes = "";
+            // UI State: Loading
+            startBtn.disabled = true;
+            loadingMsg.style.display = "block";
+            loadingMsg.innerText = "Reading data...";
 
-        startBtn.disabled = true;
-        loadingMsg.style.display = "block";
-
-        try {
-            if (notesInput.value.trim().length > 0) {
-                finalNotes = notesInput.value;
-            } else if (fileInput.files.length > 0) {
-                const file = fileInput.files[0];
-                if (file.type === "application/pdf") {
-                    finalNotes = await extractTextFromPDF(file);
-                } else {
-                    finalNotes = await file.text();
+            try {
+                // 1. Check Text Area first (Priority)
+                if (notesInput.value.trim().length > 0) {
+                    console.log("Reading from Text Area...");
+                    finalNotes = notesInput.value;
                 }
-            } else {
-                alert("Please paste notes or upload a file to start.");
+                // 2. Check File Upload
+                else if (fileInput.files.length > 0) {
+                    console.log("Reading from PDF/File...");
+                    const file = fileInput.files[0];
+
+                    if (file.type === "application/pdf") {
+                        loadingMsg.innerText = "Parsing PDF...";
+                        finalNotes = await extractTextFromPDF(file);
+                    } else {
+                        // Plain text file
+                        finalNotes = await file.text();
+                    }
+                } else {
+                    alert("Please paste notes or upload a file to start.");
+                    resetUI();
+                    return;
+                }
+
+                // 3. Validation
+                if (!finalNotes || finalNotes.trim().length === 0) {
+                    throw new Error("Extracted text is empty.");
+                }
+
+                // Store notes globally for Phaser
+                window.gameNotes = finalNotes
+                    .split('\n')
+                    .map(line => line.trim())
+                    .filter(l => l.length > 0);
+                  
+                //Store game settings
+                window.gameSettings = {
+                    numQuestions: parseInt(document.getElementById('num-questions').value),
+                    tone: document.getElementById('tone-input').value,
+                    theme: document.getElementById('theme-input').value,
+                    artStyle: document.getElementById('artstyle-input').value
+                };
+
+                console.log('Game Settings:', window.gameSettings);
+                // console.log("--- TEXT CAPTURED SUCCESSFULLY ---");
+                // // Store notes globally so Phaser scenes can access them
+                // window.gameNotes = finalNotes;
+
+                // // 4. Start the Game
+                startPhaserGame();
+
+            } catch (error) {
+                console.error("Error reading input:", error);
+                alert("Error reading file: " + error.message);
                 resetUI();
-                return;
+            }
+        });
+
+        function resetUI() {
+            startBtn.disabled = false;
+            loadingMsg.style.display = "none";
+        }
+
+        // --- HELPER: Extract Text from PDF ---
+        async function extractTextFromPDF(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+            let fullText = "";
+
+            // Loop through all pages
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+
+                // Combine text items on the page
+                const pageText = textContent.items.map(item => item.str).join(" ");
+                fullText += pageText + "\n";
+            }
+            return fullText;
+        }
+
+        // --- HELPER: Start Phaser ---
+        function startPhaserGame() {
+
+            // Hide both menus
+            menuUi.style.opacity = '0';
+            document.getElementById('settings-ui').style.opacity = '0';
+            setTimeout(() => { 
+                menuUi.style.display = 'none';
+                document.getElementById('settings-ui').style.display = 'none';
+            }, 500);
+
+            // Destroy previous game instance if exists
+            if (window.gameInstance) {
+                window.gameInstance.destroy(true);
             }
 
-            if (!finalNotes.trim()) {
-                alert("Could not read text from that file.");
-                resetUI();
-                return;
-            }
+            // Initialize Phaser Game
+            const config = {
+                type: Phaser.AUTO,
+                width: window.innerWidth,
+                height: window.innerHeight,
+                parent: document.body,
+                backgroundColor: '#000000',
+                scene: [Load, Play] // Ensure these match your actual class names
+            };
 
-            // Store notes globally for Phaser
-            window.gameNotes = finalNotes
-            .split('\n')
-            .map(line => line.trim())
-            .filter(l => l.length > 0);
-            startPhaserGame();
-
-        } catch (error) {
-            console.error(error);
-            alert("Error reading file. Try a simpler text file.");
-            resetUI();
+            window.gameInstance = new Phaser.Game(config);
         }
-    });
-
-    function resetUI() {
-        startBtn.disabled = false;
-        loadingMsg.style.display = "none";
-    }
-
-    async function extractTextFromPDF(file) {
-        const arrayBuffer = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-        let fullText = "";
-        for (let i = 1; i <= pdf.numPages; i++) {
-            const page = await pdf.getPage(i);
-            const textContent = await page.getTextContent();
-            fullText += textContent.items.map(item => item.str).join(" ") + "\n";
-        }
-        return fullText;
-    }
-
-    function startPhaserGame() {
-        // Hide menu
-        menuUi.style.opacity = '0';
-        setTimeout(() => { menuUi.style.display = 'none'; }, 500);
-
-        // Start Phaser game
-        const config = {
-            type: Phaser.AUTO,
-            width: 800,
-            height: 600,
-            parent: document.body,
-            scene: [Load, Play]
-        };
-        new Phaser.Game(config);
-    }
-</script>
+    </script>
 
 </body>
 </html>
