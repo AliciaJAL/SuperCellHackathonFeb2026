@@ -1,10 +1,12 @@
-// server/index.js
 import express from 'express';
 import cors from 'cors';
-import { exec } from 'child_process';
 
-const app = express();  // <- THIS is the app Node needs
+const app = express();
 const PORT = 3000;
+
+// CONNECTION SETTINGS
+const OLLAMA_URL = 'http://127.0.0.1:11434/api/generate';
+const MODEL_NAME = 'llama3.2:3b';
 
 app.use(cors());
 app.use(express.json());
@@ -16,50 +18,73 @@ app.post('/api/generate-question', async (req, res) => {
         return res.status(400).json({ error: 'No notes provided' });
     }
 
+    console.log("📝 Received notes. Asking Ollama to generate a question...");
+
     const prompt = `
-You are a helpful educational assistant.
-Generate a multiple-choice question from these notes:
+    You are a game engine for an educational escape room.
+    
+    CONTEXT:
+    ${notes}
 
-${notes}
+    TASK:
+    Analyze the content above and create a multiple-choice question that tests understanding of the material. The question should be clear and concise, with three answer options. Only one option should be correct.
+    Generate 1 multiple-choice question based on the context above.
+    
+    STRICT JSON FORMAT:
+    {
+      "question": "The question text",
+      "answers": ["Option A", "Option B", "Option C"],
+      "correctIndex": 0,
+      "hint": "A short hint"
+    }
 
-Requirements:
-- 1 question
-- 3 answer choices
-- Correct answer indicated as an index
-- Provide a hint
-Respond ONLY in JSON format like this:
+    Respond ONLY with the JSON. Do not add markdown formatting or extra text.
+    `;
 
-{
-  "question": "Question text here",
-  "answers": ["Option 1", "Option 2", "Option 3"],
-  "correctIndex": 0,
-  "hint": "A helpful hint here"
-}
-`;
+    try {
+        const response = await fetch(OLLAMA_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: MODEL_NAME,
+                prompt: prompt,
+                stream: false,
+                format: "json" // This forces Llama 3 to be well-behaved
+            })
+        });
 
-    exec(`ollama generate llama3.2:3b "${prompt}"`, (error, stdout, stderr) => {
-        if (error) {
-            console.error('Ollama error:', error);
-            return res.status(500).json({ error: 'LLM generation failed' });
+        if (!response.ok) {
+            throw new Error(`Ollama API Error: ${response.statusText}`);
         }
 
-        const jsonStart = stdout.indexOf('{');
-        const jsonEnd = stdout.lastIndexOf('}') + 1;
+        const data = await response.json();
+        const generatedText = data.response;
 
-        if (jsonStart === -1 || jsonEnd === -1) {
-            return res.status(500).json({ error: 'Invalid LLM output' });
-        }
+        console.log("🤖 Ollama replied:", generatedText);
 
+        // Parse the result
+        let gameData;
         try {
-            const data = JSON.parse(stdout.substring(jsonStart, jsonEnd));
-            res.json(data);
-        } catch (e) {
-            console.error('Failed to parse JSON:', e, 'stdout:', stdout);
-            return res.status(500).json({ error: 'Failed to parse LLM output' });
+            gameData = JSON.parse(generatedText);
+        } catch (parseError) {
+            // Sometimes models add extra text even with JSON mode, this helps clean it
+            const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                gameData = JSON.parse(jsonMatch[0]);
+            } else {
+                throw new Error("Could not parse JSON from Ollama response");
+            }
         }
-    });
+        
+        res.json(gameData);
+
+    } catch (error) {
+        console.error('❌ Server Error:', error);
+        res.status(500).json({ error: 'Failed to generate question', details: error.message });
+    }
 });
 
 app.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`);
+    console.log(`\n🚀 Server running at http://localhost:${PORT}`);
+    console.log(`🔗 Connected to Ollama at ${OLLAMA_URL}`);
 });
